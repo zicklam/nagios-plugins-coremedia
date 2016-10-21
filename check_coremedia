@@ -1,0 +1,153 @@
+#! /usr/bin/env perl
+
+# ----------------------------------------------------------------------------
+# check_coremedia Nagios Plugin
+#
+# written by  : Florian Zicklam <opensource@florianzicklam.de>
+# modified by : Florian Zicklam <opensource@florianzicklam.de>
+# 
+# version     : 0.1~fz
+# last change : 2016-10-20
+#
+# INFO #######################################################################
+#   
+#   
+#
+#
+# CHANGELOG ##################################################################
+# 0.1
+# ----------------------------------------------------------------------------
+
+use 5.8.8;
+use strict;
+use warnings;
+
+use Monitoring::Plugin;
+
+use feature qw/switch/;
+
+use vars qw($VERSION $PROGNAME $verbose $timeout);
+use vars qw($corem $coremProbe $coremTool);
+
+$VERSION = 0.1;
+
+
+
+$corem = Monitoring::Plugin->new(
+	shortname => 'CoreMedia Probedog',
+	usage     => "Usage: %s --component=<CoreMedia Component>\n\t\t       [--prefix <prefix>] [--path <path>] [-t timeout]",
+	version   => $VERSION,
+	url       => "https://github.com/zicklam/nagios-plugins-coremedia/check_coremedia",
+	#license   => "",
+	blurb     => "CoreMedia Probedog check_coremedia\nThis plugin run tests against the CoreMedia Probedog.",
+	extra     => "
+
+Example:
+
+ Return the probedog status for the CoreMedia CMS Server
+ \$ $0 --prefix cm8 --path /opt/coremedia cms
+ OK 
+
+",
+	timeout   => 10,
+);
+
+
+
+$corem->add_arg(
+	spec     => "prefix=s",
+	help     => "Prefix for Packages (default: cm8)",
+	label    => "PREFIX",
+	default  => "cm8",
+	required => 0,
+);
+
+$corem->add_arg(
+	spec     => "path=s",
+	help     => "Path to CoreMedia Tools (default: /opt/coremedia)",
+	label    => "PATH",
+	default  => "/opt/coremedia",
+	required => 0,
+);
+
+$corem->add_arg(
+	spec     => "component=s",
+	help     => [
+		'Bla',
+		'Bla',
+		'Bla',
+	],
+	label    => [
+		'CMS|MLS|RLS|WFS',
+		'CAE-Delivery|CAE-Preview',
+		'CAEFeeder-Delivery|CAEFeeder-Preview',
+	],
+	required => 1,
+);
+
+$corem->getopts;
+
+alarm $corem->opts->timeout;
+
+if ( $corem->opts->verbose ) {
+  print "VERBOSE: \n";
+  use Data::Dumper;
+  
+  #print Dumper($corem->opts->{'_args'});
+  print Dumper($corem->opts->{'_attr'}->{'argv'});
+  # -> Array mit den übergebenen Werten
+  #print @{$corem->opts->{'_attr'}->{'argv'}};
+}
+
+# CoreMedia Components with Probedog:
+given ( $corem->opts->component ) {
+	when (/^cms/i)               { $coremTool = 'cms-tools';               $coremProbe = 'ProbeContentServer'; }
+	when (/^mls/i)               { $coremTool = 'mls-tools';               $coremProbe = 'ProbeContentServer'; }
+	when (/^rls/i)               { $coremTool = 'rls-tools';               $coremProbe = 'ProbeContentServer'; }
+	when (/^wfs/i)               { $coremTool = 'wfs-tools';               $coremProbe = 'ProbeWorkflowServer'; }
+	when (/^cae-live/i)          { $coremTool = 'cae-live-tools';          $coremProbe = 'ProbeCae'; }
+	when (/^cae-preview/i)       { $coremTool = 'cae-preview-tools';       $coremProbe = 'ProbeCae'; }
+	when (/^caefeeder-live/i)    { $coremTool = 'caefeeder-live-tools';    $coremProbe = 'ProbeCaeFeeder'; }
+	when (/^caefeeder-preview/i) { $coremTool = 'caefeeder-preview-tools'; $coremProbe = 'ProbeCaeFeeder'; }
+	default                      { undef $coremTool;                       undef $coremProbe; }
+}
+
+# Check if correct CoreMedia component is specified (--component parameter):
+$corem->plugin_die("No CoreMedia Component specified!") if (!$coremTool || !$coremProbe);
+
+# Check if file exist and is accessible:
+my $base = $corem->opts->path.'/'.$corem->opts->prefix.'-'.$coremTool.'/bin/cm';
+$corem->plugin_die("CoreMedia Tools doesn't exist ($base)") if !-f $base;
+$corem->plugin_die("CoreMedia Tools aren't accessible ($base)") if !-x $base;
+
+
+
+
+
+
+
+
+my $command = ( $base.' probedog '.$coremProbe );
+my $retval = `$command`;
+
+print $retval;
+
+
+# CoreMedia Probedog Return Codes:
+#  https://documentation.coremedia.com/cm8/7.1.13-8/manuals/operation-basics-en/webhelp/content/ch04s08s04.html
+#
+#  (0) OK
+# (10) unexpected_error
+# (11) timeout
+# (12) error
+# (81) service_stopped
+# (82) service_failed
+# (83) service_disabled
+
+# OK as Default Exit
+$corem->plugin_exit( OK, "CoreMedia Probedog: OK" );
+
+$corem->plugin_exit(
+  return_code => '1',
+  message     => "",
+);
