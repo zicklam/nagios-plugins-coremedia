@@ -5,12 +5,13 @@ Nagios Plugin - check_coremedia
 
 Prerequisites
 -------------
-
 - Monitoring::Plugin
+
+### RHEL/CentOS
+`sudo sudo yum install perl-Monitoring-Plugin`
 
 Usage
 -----
-
 ```
-./check_coremedia --prefix=cm8 --path=/opt/coremedia cms
+./check_coremedia --component cms --prefix=cm8 --path=/opt/coremedia
 ```
