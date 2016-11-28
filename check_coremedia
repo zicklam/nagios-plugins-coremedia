@@ -1,0 +1,184 @@
+#! /usr/bin/env perl
+
+# ----------------------------------------------------------------------------
+# check_coremedia Nagios Plugin
+#
+# written by  : Florian Zicklam <opensource@florianzicklam.de>
+# modified by : Florian Zicklam <opensource@florianzicklam.de>
+# 
+# version     : 0.2~fz
+# last change : 2016-11-28
+#
+# INFO #######################################################################
+#   Monitoring Plugin checks against the CoreMedia Tools with Probedog
+#  Parameter.
+#
+#  This Plugin require the perl libaray Monitoring::Plugin
+#  Installation doc:
+#   $ sudo yum install perl-Monitoring-Plugin
+#
+# CHANGELOG ##################################################################
+# 0.1	Initial version
+# 0.2   Verbose output
+# ----------------------------------------------------------------------------
+
+use 5.8.8;
+use strict;
+use warnings;
+
+use Monitoring::Plugin;
+
+use feature qw/switch/;
+
+use vars qw($VERSION $PROGNAME $verbose $timeout $status $output);
+use vars qw($corem $coremProbe $coremTool $coremReturn $coremMessage);
+
+$VERSION = 0.1;
+
+# ----------------------------------------------------------------------------
+# Start a new monitoring plugin :)
+# ----------------------------------------------------------------------------
+$corem = Monitoring::Plugin->new(
+	shortname => 'CoreMedia Probedog',
+	usage     => "Usage: %s --component=<CoreMedia Component>\n\t\t       [--prefix <prefix>] [--path <path>] [-t timeout]",
+	version   => $VERSION,
+	url       => "https://github.com/zicklam/nagios-plugins-coremedia/check_coremedia",
+	#license   => "",
+	blurb     => "CoreMedia Probedog check_coremedia\nThis plugin run tests against the CoreMedia Probedog.",
+	extra     => "
+
+Example:
+
+ Return the probedog status for the CoreMedia CMS Server
+ \$ $0 --prefix cm8 --path /opt/coremedia cms
+
+",
+	timeout   => 10,
+);
+
+# - possible arguments -------------------------------------------------------
+$corem->add_arg(
+	spec     => "prefix=s",
+	help     => "Prefix for Packages (default: cm8)",
+	label    => "PREFIX",
+	default  => "cm8",
+	required => 0,
+);
+
+$corem->add_arg(
+	spec     => "path=s",
+	help     => "Path to CoreMedia Tools (default: /opt/coremedia) \n",
+	label    => "PATH",
+	default  => "/opt/coremedia",
+	required => 0,
+);
+
+$corem->add_arg(
+	spec     => "component=s",
+	help     => [
+		"Check for CoreMedia Components with 'ProbeContentServer'",
+		"Check for CoreMedia Components with 'ProbeWorkflowServer'",
+		"Check for CoreMedia Components with 'ProbeCae'",
+		"Check for CoreMedia Components with 'ProbeCaeFeeder' \n",
+	],
+	label    => [
+		'(CMS|MLS|RLS)',
+		'WFS',
+		'(CAE-Delivery|CAE-Preview)',
+		'(CAEFeeder-Delivery|CAEFeeder-Preview)',
+	],
+	required => 1,
+);
+
+# ----------------------------------------------------------------------------
+# functions() 
+
+# execute command and catch output/return code
+sub executeCommand {
+	my $command = join ' ', @_;
+	print "[VERBOSE] Command: \n\t".$command."\n" if $corem->opts->verbose;
+	reverse ($_ = qx{$command 2>&1}, $? >> 8);
+}
+
+
+# ----------------------------------------------------------------------------
+# main()
+$corem->getopts;
+
+# - kill after timeout -------------------------------------------------------
+alarm $corem->opts->timeout;
+
+# - verbose mode -------------------------------------------------------------
+if ( $corem->opts->verbose ) {
+  print "[VERBOSE] ARGV: \n\t";
+  use Data::Dumper;
+  
+  # print all variables:
+  #print Dumper($corem->opts->{'_args'});
+  
+  # print only given arguments
+  print Dumper($corem->opts->{'_attr'}->{'argv'});
+}
+
+# - CoreMedia Components with Probedog ---------------------------------------
+given ( $corem->opts->component ) {
+	when (/^cms/i)               { $coremTool = 'cms-tools';               $coremProbe = 'ProbeContentServer'; }
+	when (/^mls/i)               { $coremTool = 'mls-tools';               $coremProbe = 'ProbeContentServer'; }
+	when (/^rls/i)               { $coremTool = 'rls-tools';               $coremProbe = 'ProbeContentServer'; }
+	when (/^wfs/i)               { $coremTool = 'wfs-tools';               $coremProbe = 'ProbeWorkflowServer'; }
+	when (/^cae-live/i)          { $coremTool = 'cae-live-tools';          $coremProbe = 'ProbeCae'; }
+	when (/^cae-preview/i)       { $coremTool = 'cae-preview-tools';       $coremProbe = 'ProbeCae'; }
+	when (/^caefeeder-live/i)    { $coremTool = 'caefeeder-live-tools';    $coremProbe = 'ProbeCaeFeeder'; }
+	when (/^caefeeder-preview/i) { $coremTool = 'caefeeder-preview-tools'; $coremProbe = 'ProbeCaeFeeder'; }
+	default                      { undef $coremTool;                       undef $coremProbe; }
+}
+
+# - CoreMedia Components with Runlevel ---------------------------------------
+#given ( $corem->opts->component ) {
+#	when (/^cms/i)               { $coremTool = 'cms-tools';               $coremProbe = 'ProbeContentServer'; }
+#	when (/^mls/i)               { $coremTool = 'mls-tools';               $coremProbe = 'ProbeContentServer'; }
+#	when (/^rls/i)               { $coremTool = 'rls-tools';               $coremProbe = 'ProbeContentServer'; }
+#	when (/^wfs/i)               { $coremTool = 'wfs-tools';               $coremProbe = 'ProbeWorkflowServer'; }
+#	when (/^cae-live/i)          { $coremTool = 'cae-live-tools';          $coremProbe = 'ProbeCae'; }
+#	when (/^cae-preview/i)       { $coremTool = 'cae-preview-tools';       $coremProbe = 'ProbeCae'; }
+#	when (/^caefeeder-live/i)    { $coremTool = 'caefeeder-live-tools';    $coremProbe = 'ProbeCaeFeeder'; }
+#	when (/^caefeeder-preview/i) { $coremTool = 'caefeeder-preview-tools'; $coremProbe = 'ProbeCaeFeeder'; }
+#	default                      { undef $coremTool;                       undef $coremProbe; }
+#}
+
+# ----------------------------------------------------------------------------
+# - basic checks if all arguments are given ----------------------------------
+
+# - Check if correct CoreMedia component is specified (--component parameter):
+$corem->plugin_die("No CoreMedia Component specified!") if (!$coremTool || !$coremProbe);
+
+# - Check if file exist and is accessible:
+my $base = $corem->opts->path.'/'.$corem->opts->prefix.'-'.$coremTool.'/bin/cm';
+$corem->plugin_die("CoreMedia Tools doesn't exist ($base)", 3) 		if !-f $base;
+$corem->plugin_die("CoreMedia Tools aren't accessible ($base)", 3) 	if !-x $base;
+
+#$status = "1";
+
+# - Run CoreMedia Check:
+my @cmd_args = ($base, "probedog", $coremProbe);
+($status, $output) = executeCommand(@cmd_args) if ! defined ($status || $output);
+
+print "[VERBOSE] Output: \n".$output."\n" if $corem->opts->verbose;
+
+# - CoreMedia Probedog Return Codes:
+#    https://documentation.coremedia.com/cm8/7.1.13-8/manuals/operation-basics-en/webhelp/content/ch04s08s04.html
+given ( $status ) {
+	when (0)	{ $coremReturn = 0; $coremMessage = 'The application works properly without errors.'; }
+	when (10)	{ $coremReturn = 2; $coremMessage = 'Unexpected Error - An exception has been thrown, that is not caught and handled by the action.'; }
+	when (11)	{ $coremReturn = 2; $coremMessage = 'Timeout - An action has not finished in the specified time interval.'; }
+	when (31)	{ $coremReturn = 2; $coremMessage = 'No Licenses -  An action has failed because there was no free license.'; }
+	when (81)	{ $coremReturn = 2; $coremMessage = 'Service Stopped - This result code is returned by the ServiceStatus action if the service is not running, either because it has been stopped, or because the run level of the server is too low for the service to run.'; }
+	when (82)	{ $coremReturn = 2; $coremMessage = 'Service Failed -  The ServiceStatus action has failed because the service was ended due to a "critical error".'; }
+	when (83)	{ $coremReturn = 2; $coremMessage = 'Service Disabled - The ServiceStatus action has failed because the checked service is not activated. The service activation can depend on the server type. For example, the replicator service is only available on a Replication Live Server.'; }
+	default		{ $coremReturn = 2; $coremMessage = 'Error, please check the system! (# Error Code: '.$status.')'; }
+}
+
+$corem->plugin_exit(
+  return_code => $coremReturn,
+  message     => $coremMessage,
+);
