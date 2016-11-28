@@ -34,7 +34,7 @@ use feature qw/switch/;
 use vars qw($VERSION $PROGNAME $verbose $timeout $status $output);
 use vars qw($corem $coremProbe $coremTool $coremReturn $coremMessage);
 
-$VERSION = 0.1;
+$VERSION = 0.3;
 
 # ----------------------------------------------------------------------------
 # Start a new monitoring plugin :)
