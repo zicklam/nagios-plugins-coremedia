@@ -19,7 +19,8 @@
 #
 # CHANGELOG ##################################################################
 # 0.1	Initial version
-# 0.2   Verbose output
+# 0.2	Verbose output
+# 0.3	Increase timeout to 20 seconds
 # ----------------------------------------------------------------------------
 
 use 5.8.8;
@@ -33,7 +34,7 @@ use feature qw/switch/;
 use vars qw($VERSION $PROGNAME $verbose $timeout $status $output);
 use vars qw($corem $coremProbe $coremTool $coremReturn $coremMessage);
 
-$VERSION = 0.1;
+$VERSION = 0.3;
 
 # ----------------------------------------------------------------------------
 # Start a new monitoring plugin :)
@@ -42,7 +43,7 @@ $corem = Monitoring::Plugin->new(
 	shortname => 'CoreMedia Probedog',
 	usage     => "Usage: %s --component=<CoreMedia Component>\n\t\t       [--prefix <prefix>] [--path <path>] [-t timeout]",
 	version   => $VERSION,
-	url       => "https://github.com/zicklam/nagios-plugins-coremedia/check_coremedia",
+	url       => "https://github.com/zicklam/nagios-plugins-coremedia",
 	#license   => "",
 	blurb     => "CoreMedia Probedog check_coremedia\nThis plugin run tests against the CoreMedia Probedog.",
 	extra     => "
@@ -53,7 +54,7 @@ Example:
  \$ $0 --prefix cm8 --path /opt/coremedia cms
 
 ",
-	timeout   => 10,
+	timeout   => 20,
 );
 
 # - possible arguments -------------------------------------------------------
@@ -100,7 +101,6 @@ sub executeCommand {
 	reverse ($_ = qx{$command 2>&1}, $? >> 8);
 }
 
-
 # ----------------------------------------------------------------------------
 # main()
 $corem->getopts;
@@ -134,17 +134,7 @@ given ( $corem->opts->component ) {
 }
 
 # - CoreMedia Components with Runlevel ---------------------------------------
-#given ( $corem->opts->component ) {
-#	when (/^cms/i)               { $coremTool = 'cms-tools';               $coremProbe = 'ProbeContentServer'; }
-#	when (/^mls/i)               { $coremTool = 'mls-tools';               $coremProbe = 'ProbeContentServer'; }
-#	when (/^rls/i)               { $coremTool = 'rls-tools';               $coremProbe = 'ProbeContentServer'; }
-#	when (/^wfs/i)               { $coremTool = 'wfs-tools';               $coremProbe = 'ProbeWorkflowServer'; }
-#	when (/^cae-live/i)          { $coremTool = 'cae-live-tools';          $coremProbe = 'ProbeCae'; }
-#	when (/^cae-preview/i)       { $coremTool = 'cae-preview-tools';       $coremProbe = 'ProbeCae'; }
-#	when (/^caefeeder-live/i)    { $coremTool = 'caefeeder-live-tools';    $coremProbe = 'ProbeCaeFeeder'; }
-#	when (/^caefeeder-preview/i) { $coremTool = 'caefeeder-preview-tools'; $coremProbe = 'ProbeCaeFeeder'; }
-#	default                      { undef $coremTool;                       undef $coremProbe; }
-#}
+# new functions, need to do.
 
 # ----------------------------------------------------------------------------
 # - basic checks if all arguments are given ----------------------------------
@@ -156,8 +146,6 @@ $corem->plugin_die("No CoreMedia Component specified!") if (!$coremTool || !$cor
 my $base = $corem->opts->path.'/'.$corem->opts->prefix.'-'.$coremTool.'/bin/cm';
 $corem->plugin_die("CoreMedia Tools doesn't exist ($base)", 3) 		if !-f $base;
 $corem->plugin_die("CoreMedia Tools aren't accessible ($base)", 3) 	if !-x $base;
-
-#$status = "1";
 
 # - Run CoreMedia Check:
 my @cmd_args = ($base, "probedog", $coremProbe);
