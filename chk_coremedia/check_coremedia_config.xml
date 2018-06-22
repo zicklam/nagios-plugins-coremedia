@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!--
+ Component Name and ActionName must be unique!
+
+ # modified by : Florian Zicklam
+ # last change : 2017-05-16
+-->
+<!DOCTYPE Watchdog SYSTEM "classpath:xml/coremedia-watchdog.dtd">
+
+<Watchdog>
+  <!-- CMS -->
+  <Component name="customer1-ProbeContentServer" startAction="customer1-Content-IOR-Query" delay="0">
+    <ServerQuery name="customer1-Content-IOR-Query" url="http://server-cms:41080/coremedia/ior" user="watchdog" password="watchdog"/>
+  </Component>
+
+  <!-- MLS -->
+  <Component name="customer1-ProbeMasterServer" startAction="customer1-Content-IOR-Query-MLS" delay="0">
+    <ServerQuery name="customer1-Content-IOR-Query-MLS" url="http://server-mls:42080/coremedia/ior" user="watchdog" password="watchdog"/>
+  </Component>
+
+  <!-- RLS1 -->
+  <Component name="customer1-ProbeReplServer1" startAction="customer1-Content-IOR-Query-RLS1" delay="0">
+    <ServerQuery name="customer1-Content-IOR-Query-RLS1" url="http://server-rls-1:48080/coremedia/ior" user="watchdog" password="watchdog"/>
+  </Component>
+
+  <!-- RLS2 -->
+  <Component name="customer1-ProbeReplServer2" startAction="customer1-Content-IOR-Query-RLS2" delay="0">
+    <ServerQuery name="customer1-Content-IOR-Query-RLS2" url="http://server-rls-2:48080/coremedia/ior" user="watchdog" password="watchdog"/>
+  </Component>
+
+  <!-- RLS3 -->
+  <Component name="customer1-ProbeReplServer3" startAction="customer1-Content-IOR-Query-RLS3" delay="0">
+    <ServerQuery name="customer1-Content-IOR-Query-RLS3" url="http://server-rls-3:48080/coremedia/ior" user="watchdog" password="watchdog"/>
+  </Component>
+
+  <!-- RLS4 -->
+  <Component name="customer1-ProbeReplServer4" startAction="customer1-Content-IOR-Query-RLS4" delay="0">
+    <ServerQuery name="customer1-Content-IOR-Query-RLS4" url="http://server-rls-4:48080/coremedia/ior" user="watchdog" password="watchdog"/>
+  </Component>
+
+  <!-- Workflow Server -->
+  <Component name="customer1-ProbeWorkflowServer" startAction="customer1-Workflow-IOR-Query" delay="0">
+    <WorkflowServerQuery name="customer1-Workflow-IOR-Query" url="http://server-wfs:43080/workflow/ior" user="watchdog" password="watchdog"/>
+  </Component>
+
+  <!-- Workflow Server -->
+  <Component name="customer1-ProbeWorkflowServerCount" startAction="customer1-Workflow-Process-Query" delay="0">
+    <ProcessStatus name="customer1-Workflow-Process-Query" url="http://server-wfs:43080/workflow/ior" user="watchdog" password="watchdog" processName="StudioSimplePublication" minCount="0" maxCount="5"/>
+  </Component>
+</Watchdog>
