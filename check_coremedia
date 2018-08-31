@@ -6,8 +6,8 @@
 # written by  : Florian Zicklam <opensource@florianzicklam.de>
 # modified by : Florian Zicklam <opensource@florianzicklam.de>
 # 
-# version     : 0.2~fz
-# last change : 2016-11-28
+# version     : 0.4~fz
+# last change : 2017-05-12
 #
 # INFO #######################################################################
 #   Monitoring Plugin checks against the CoreMedia Tools with Probedog
@@ -21,6 +21,7 @@
 # 0.1	Initial version
 # 0.2	Verbose output
 # 0.3	Increase timeout to 20 seconds
+# 0.4	centralized check (check from icinga server side)
 # ----------------------------------------------------------------------------
 
 use 5.8.8;
@@ -33,8 +34,9 @@ use feature qw/switch/;
 
 use vars qw($VERSION $PROGNAME $verbose $timeout $status $output);
 use vars qw($corem $coremProbe $coremTool $coremReturn $coremMessage);
+use vars qw($base $standalone);
 
-$VERSION = 0.3;
+$VERSION = 0.4;
 
 # ----------------------------------------------------------------------------
 # Start a new monitoring plugin :)
@@ -60,7 +62,7 @@ Example:
 # - possible arguments -------------------------------------------------------
 $corem->add_arg(
 	spec     => "prefix=s",
-	help     => "Prefix for Packages (default: cm8)",
+	help     => "Prefix for Packages (default: cm8) \n   In standalone mode it define the project prefix (example: customer1)",
 	label    => "PREFIX",
 	default  => "cm8",
 	required => 0,
@@ -71,6 +73,14 @@ $corem->add_arg(
 	help     => "Path to CoreMedia Tools (default: /opt/coremedia) \n",
 	label    => "PATH",
 	default  => "/opt/coremedia",
+	required => 0,
+);
+
+$corem->add_arg(
+	spec     => 'standalone+',
+	help     => "Run check centralized from icinga-core server instead as plugin via NRPE or ssh \n",
+	label    => "Standalone mode from Core",
+	default  => "",
 	required => 0,
 );
 
@@ -121,16 +131,34 @@ if ( $corem->opts->verbose ) {
 }
 
 # - CoreMedia Components with Probedog ---------------------------------------
-given ( $corem->opts->component ) {
-	when (/^cms/i)               { $coremTool = 'cms-tools';               $coremProbe = 'ProbeContentServer'; }
-	when (/^mls/i)               { $coremTool = 'mls-tools';               $coremProbe = 'ProbeContentServer'; }
-	when (/^rls/i)               { $coremTool = 'rls-tools';               $coremProbe = 'ProbeContentServer'; }
-	when (/^wfs/i)               { $coremTool = 'wfs-tools';               $coremProbe = 'ProbeWorkflowServer'; }
-	when (/^cae-live/i)          { $coremTool = 'cae-live-tools';          $coremProbe = 'ProbeCae'; }
-	when (/^cae-preview/i)       { $coremTool = 'cae-preview-tools';       $coremProbe = 'ProbeCae'; }
-	when (/^caefeeder-live/i)    { $coremTool = 'caefeeder-live-tools';    $coremProbe = 'ProbeCaeFeeder'; }
-	when (/^caefeeder-preview/i) { $coremTool = 'caefeeder-preview-tools'; $coremProbe = 'ProbeCaeFeeder'; }
-	default                      { undef $coremTool;                       undef $coremProbe; }
+
+if ( $corem->opts->standalone ) {
+	$ENV{'JAVA_HOME'} = '/usr/java/default';
+	$coremTool = 'tools';
+
+	given ( $corem->opts->component ) {
+		when (/^wfs_count/i) { $coremProbe = $corem->opts->prefix.'-'.'ProbeWorkflowServerCount'; }
+		when (/^cms/i)   { $coremProbe = $corem->opts->prefix.'-'.'ProbeContentServer'; }
+		when (/^mls/i)   { $coremProbe = $corem->opts->prefix.'-'.'ProbeMasterServer'; }
+		when (/^wfs/i)   { $coremProbe = $corem->opts->prefix.'-'.'ProbeWorkflowServer'; }
+		when (/^rls1/i)  { $coremProbe = $corem->opts->prefix.'-'.'ProbeReplServer1'; }
+		when (/^rls2/i)  { $coremProbe = $corem->opts->prefix.'-'.'ProbeReplServer2'; }
+		when (/^rls3/i)  { $coremProbe = $corem->opts->prefix.'-'.'ProbeReplServer3'; }
+		when (/^rls4/i)  { $coremProbe = $corem->opts->prefix.'-'.'ProbeReplServer4'; }
+		default          { undef $coremTool; undef $coremProbe; }
+	}
+} else {
+	given ( $corem->opts->component ) {
+		when (/^cms/i)               { $coremTool = 'cms-tools';               $coremProbe = 'ProbeContentServer'; }
+		when (/^mls/i)               { $coremTool = 'mls-tools';               $coremProbe = 'ProbeContentServer'; }
+		when (/^rls/i)               { $coremTool = 'rls-tools';               $coremProbe = 'ProbeContentServer'; }
+		when (/^wfs/i)               { $coremTool = 'wfs-tools';               $coremProbe = 'ProbeWorkflowServer'; }
+		when (/^cae-live/i)          { $coremTool = 'cae-live-tools';          $coremProbe = 'ProbeCae'; }
+		when (/^cae-preview/i)       { $coremTool = 'cae-preview-tools';       $coremProbe = 'ProbeCae'; }
+		when (/^caefeeder-live/i)    { $coremTool = 'caefeeder-live-tools';    $coremProbe = 'ProbeCaeFeeder'; }
+		when (/^caefeeder-preview/i) { $coremTool = 'caefeeder-preview-tools'; $coremProbe = 'ProbeCaeFeeder'; }
+		default                      { undef $coremTool;                       undef $coremProbe; }
+	}
 }
 
 # - CoreMedia Components with Runlevel ---------------------------------------
@@ -143,7 +171,11 @@ given ( $corem->opts->component ) {
 $corem->plugin_die("No CoreMedia Component specified!") if (!$coremTool || !$coremProbe);
 
 # - Check if file exist and is accessible:
-my $base = $corem->opts->path.'/'.$corem->opts->prefix.'-'.$coremTool.'/bin/cm';
+if ( $corem->opts->standalone ) {
+	$base = $corem->opts->path.'/'.$coremTool.'/bin/cm';
+} else {
+	$base = $corem->opts->path.'/'.$corem->opts->prefix.'-'.$coremTool.'/bin/cm';
+}
 $corem->plugin_die("CoreMedia Tools doesn't exist ($base)", 3) 		if !-f $base;
 $corem->plugin_die("CoreMedia Tools aren't accessible ($base)", 3) 	if !-x $base;
 
@@ -157,7 +189,7 @@ print "[VERBOSE] Output: \n".$output."\n" if $corem->opts->verbose;
 #    https://documentation.coremedia.com/cm8/7.1.13-8/manuals/operation-basics-en/webhelp/content/ch04s08s04.html
 given ( $status ) {
 	when (0)	{ $coremReturn = 0; $coremMessage = 'The application works properly without errors.'; }
-	when (10)	{ $coremReturn = 2; $coremMessage = 'Unexpected Error - An exception has been thrown, that is not caught and handled by the action.'; }
+	when (10)	{ $coremReturn = 2; $coremMessage = 'Unexpected Error - An exception has been thrown, that is not caught and handled by the action. Contact <oc-monitoring@materna.de>'; }
 	when (11)	{ $coremReturn = 2; $coremMessage = 'Timeout - An action has not finished in the specified time interval.'; }
 	when (31)	{ $coremReturn = 2; $coremMessage = 'No Licenses -  An action has failed because there was no free license.'; }
 	when (81)	{ $coremReturn = 2; $coremMessage = 'Service Stopped - This result code is returned by the ServiceStatus action if the service is not running, either because it has been stopped, or because the run level of the server is too low for the service to run.'; }
@@ -170,3 +202,4 @@ $corem->plugin_exit(
   return_code => $coremReturn,
   message     => $coremMessage,
 );
+
